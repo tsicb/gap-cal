@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAPスコアシミュレーター</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js for graph rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- KaTeX for math formula rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <style>
+        /* カスタムスクロールバー（数式が画面幅を超えた場合用） */
+        .math-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        .math-container::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+            border-radius: 4px;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .math-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+            border: 2px solid #f1f5f9;
+        }
+        .math-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* 立体的なスライダー */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none; /* 標準プロパティを追加 */
+            background: transparent;
+            width: 100%;
+            margin: 10px 0; /* つまみがはみ出す余白を確保 */
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        /* トラック（溝） (Chrome, Safari, Edge等) */
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #cbd5e1; /* 明確なグレー */
+            border-radius: 999px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            border: 1px solid #94a3b8; /* 枠線を少し濃く */
+        }
+        /* トラック（溝） (Firefox用) */
+        input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 999px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            border: 1px solid #94a3b8;
+        }
+
+        /* つまみ (Chrome, Safari, Edge等) */
+        input[type=range]::-webkit-slider-thumb {
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -9px; /* トラックの高さと合わせて中央に配置 */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2), inset 0 1px 3px rgba(255,255,255,0.8);
+            border: 2px solid #3b82f6; /* 青い枠線で目立たせる */
+            transition: transform 0.1s ease;
+        }
+        /* つまみ (Firefox用) */
+        input[type=range]::-moz-range-thumb {
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2), inset 0 1px 3px rgba(255,255,255,0.8);
+            border: 2px solid #3b82f6;
+            transition: transform 0.1s ease;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        input[type=range]::-moz-range-thumb:hover {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen p-4 md:p-8 selection:bg-blue-200">
+
+    <div class="max-w-4xl mx-auto space-y-6 relative">
+        
+        <!-- ヘッダー -->
+        <div class="text-center pt-4 pb-2">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 drop-shadow-sm pb-1">
+                GAPスコアシミュレーター
+            </h1>
+            <p class="text-slate-500 text-sm mt-1 font-medium">傾斜度 (p) の値を変えて、GAPスコアの変化を確認できます。</p>
+        </div>
+
+        <!-- コントロールパネルと対応表の統合コンテナ -->
+        <div class="bg-white/80 backdrop-blur-sm border border-white/60 rounded-3xl p-5 md:p-8 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] space-y-6 overflow-hidden relative">
+            <div class="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none"></div>
+            
+            <!-- コントロールパネル -->
+            <div class="relative z-10">
+                <label for="p-slider" class="block text-sm font-bold text-slate-700 mb-4">
+                    傾斜度 \( p \) の値を調整
+                </label>
+                <div class="flex flex-col sm:flex-row items-center gap-6">
+                    <input 
+                        type="range" 
+                        id="p-slider" 
+                        min="0.01" 
+                        max="0.99" 
+                        step="0.01" 
+                        value="0.5" 
+                    >
+                    <div class="flex items-center gap-3 shrink-0 bg-slate-50/80 p-2 rounded-2xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] border border-slate-100">
+                        <span class="text-sm text-slate-500 font-bold pl-2">傾斜度(p) =</span>
+                        <input 
+                            type="number" 
+                            id="p-input" 
+                            min="0.01" 
+                            max="0.99" 
+                            step="0.01" 
+                            value="0.5"
+                            class="w-20 px-3 py-1.5 text-center bg-slate-100/50 border border-slate-200 rounded-xl shadow-inner focus:ring-2 focus:ring-blue-400 focus:bg-white outline-none transition-all font-mono font-bold text-blue-600"
+                        >
+                    </div>
+                </div>
+                <div class="flex justify-between text-xs text-slate-400 mt-3 px-2 font-mono">
+                    <span>0.01</span>
+                    <span class="sm:pr-[120px]">0.99</span>
+                </div>
+            </div>
+
+            <!-- 区切り線 -->
+            <hr class="border-slate-200 shadow-[0_1px_0_rgba(255,255,255,0.8)] relative z-10">
+
+            <!-- x:y対応表 -->
+            <div class="relative z-10">
+                <h2 class="text-sm font-bold text-slate-700 mb-3">
+                    ズレ (x) と GAPスコア (y) の対応表
+                </h2>
+                <div class="math-container overflow-x-auto pb-3 relative">
+                    <table class="w-full text-sm text-center border-collapse">
+                        <thead class="bg-gradient-to-b from-slate-50 to-slate-100 text-slate-600 border-b border-slate-300 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                            <tr id="table-row-x">
+                                <!-- x values inserted here -->
+                            </tr>
+                        </thead>
+                        <tbody class="text-slate-700 bg-white/50">
+                            <tr id="table-row-y">
+                                <!-- y values inserted here -->
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- グラフ描画エリア -->
+        <div class="bg-white/80 backdrop-blur-sm border border-white/60 rounded-3xl p-5 md:p-8 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] relative">
+            <div class="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none rounded-3xl"></div>
+            <div class="relative w-full h-[400px] md:h-[500px] z-10">
+                <canvas id="mathChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 補足：数式表示エリア -->
+        <div class="text-center text-xs text-slate-400 pt-4 pb-8">
+            <p>※ 描画に用いている数式 (p: 傾斜度, x: ズレ, y: GAPスコア):</p>
+            <div class="math-container overflow-x-auto px-2 mt-2 whitespace-nowrap opacity-80">
+                \( y(x) = 1 - (2 - p)\left(\frac{x}{4}\right)^{1-p} + (1 - p)\left(\frac{x}{4}\right)^{2-p} \quad (0 < p < 1,\ 0 \le x \le 4) \)
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // KaTeXによる数式のレンダリング初期化
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "\\(", right: "\\)", display: false}
+                ],
+                throwOnError: false
+            });
+
+            // DOM要素の取得
+            const pSlider = document.getElementById('p-slider');
+            const pInput = document.getElementById('p-input');
+            const ctx = document.getElementById('mathChart').getContext('2d');
+            
+            let chartInstance = null;
+
+            // y(x) を計算する関数
+            function calculateY(x, p) {
+                // x=0の時は 0の正の累乗が発生するため、明示的に1を返す（1 - 0 + 0 = 1）
+                if (x === 0) return 1;
+                
+                const base = x / 4;
+                const term1 = 1;
+                const term2 = (2 - p) * Math.pow(base, 1 - p);
+                const term3 = (1 - p) * Math.pow(base, 2 - p);
+                
+                return term1 - term2 + term3;
+            }
+
+            // グラフ描画用のデータポイントを生成する関数
+            function generateData(p) {
+                const data = [];
+                const step = 0.01; // なめらかに描画するための刻み幅
+                
+                for (let x = 0; x <= 4; x += step) {
+                    // xの値を丸めて浮動小数点誤差を防ぐ
+                    const cleanX = Number(x.toFixed(2));
+                    data.push({ x: cleanX, y: calculateY(cleanX, p) });
+                }
+                
+                // ループの誤差で x=4 が含まれなかった場合の保険
+                if (data[data.length - 1].x !== 4) {
+                    data.push({ x: 4, y: calculateY(4, p) });
+                }
+                
+                return data;
+            }
+
+            // 対応表を生成・更新する関数
+            function updateTable(p) {
+                const rowX = document.getElementById('table-row-x');
+                const rowY = document.getElementById('table-row-y');
+                
+                // 先頭の見出しセル（横スクロール時に左端に固定）
+                rowX.innerHTML = '<th class="px-3 py-2 border-r border-slate-200 font-bold whitespace-nowrap bg-slate-100 sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] text-slate-600">ズレ (x)</th>';
+                rowY.innerHTML = '<th class="px-3 py-2 border-r border-slate-200 font-bold whitespace-nowrap bg-slate-100 sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] text-blue-600">GAPスコア (y)</th>';
+                
+                // x=0から2までを20等分（0.1刻み）
+                for (let i = 0; i <= 20; i++) {
+                    const x = i * 0.1;
+                    const cleanX = Number(x.toFixed(1));
+                    const y = calculateY(cleanX, p);
+                    
+                    const thX = document.createElement('th');
+                    thX.className = 'px-3 py-2 font-medium whitespace-nowrap border-r border-slate-200/60 last:border-0';
+                    thX.textContent = cleanX.toFixed(1);
+                    rowX.appendChild(thX);
+                    
+                    const tdY = document.createElement('td');
+                    tdY.className = 'px-3 py-2 font-mono text-sm whitespace-nowrap border-r border-slate-200/60 last:border-0';
+                    tdY.textContent = y.toFixed(2); // GAPスコアを四捨五入して小数点以下2桁に変更
+                    rowY.appendChild(tdY);
+                }
+            }
+
+            // グラフを更新または初期化する関数
+            function updateChart() {
+                const p = parseFloat(pSlider.value);
+                const newData = generateData(p);
+                
+                // 対応表も同時に更新
+                updateTable(p);
+
+                if (chartInstance) {
+                    // すでにグラフが存在する場合はデータを差し替えて更新
+                    chartInstance.data.datasets[0].data = newData;
+                    chartInstance.update();
+                } else {
+                    // 初回描画時
+                    chartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            datasets: [{
+                                label: 'GAPスコア',
+                                data: newData,
+                                borderColor: function(context) {
+                                    const chart = context.chart;
+                                    const {ctx, chartArea} = chart;
+                                    if (!chartArea) return '#3b82f6';
+                                    const gradient = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+                                    gradient.addColorStop(0, '#06b6d4'); // Cyan-500
+                                    gradient.addColorStop(1, '#3b82f6'); // Blue-500
+                                    return gradient;
+                                },
+                                backgroundColor: function(context) {
+                                    const chart = context.chart;
+                                    const {ctx, chartArea} = chart;
+                                    if (!chartArea) return 'rgba(59, 130, 246, 0.1)';
+                                    const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                                    gradient.addColorStop(0, 'rgba(6, 182, 212, 0.3)');
+                                    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+                                    return gradient;
+                                },
+                                borderWidth: 4,
+                                pointRadius: 0,
+                                pointHoverRadius: 8,
+                                pointHoverBackgroundColor: '#ffffff',
+                                pointHoverBorderColor: '#3b82f6',
+                                pointHoverBorderWidth: 3,
+                                fill: true,
+                                tension: 0.1 // 少しだけ曲線をなめらかに
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                intersect: false,
+                                mode: 'index',
+                            },
+                            scales: {
+                                x: {
+                                    type: 'linear',
+                                    position: 'bottom',
+                                    min: 0,
+                                    max: 4,
+                                    title: {
+                                        display: true,
+                                        text: 'ズレ (x)',
+                                        font: { size: 14, family: 'sans-serif' },
+                                        color: '#475569'
+                                    },
+                                    grid: {
+                                        color: '#f1f5f9'
+                                    },
+                                    ticks: {
+                                        stepSize: 0.5
+                                    }
+                                },
+                                y: {
+                                    min: 0,
+                                    max: 1,
+                                    title: {
+                                        display: true,
+                                        text: 'GAPスコア (y)',
+                                        font: { size: 14, family: 'sans-serif' },
+                                        color: '#475569'
+                                    },
+                                    grid: {
+                                        color: '#f1f5f9'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: { 
+                                    display: false 
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                                    titleFont: { size: 14, family: 'sans-serif' },
+                                    bodyFont: { size: 14, family: 'sans-serif' },
+                                    padding: 12,
+                                    cornerRadius: 8,
+                                    displayColors: false,
+                                    callbacks: {
+                                        title: (context) => `ズレ: ${context[0].parsed.x.toFixed(2)}`,
+                                        label: (context) => `GAPスコア: ${context.parsed.y.toFixed(2)}` // ツールチップも小数点以下2桁に変更
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // スライダーと数値入力の同期・制限を処理する関数
+            function syncInputs(e) {
+                let val = parseFloat(e.target.value);
+                
+                if (e.target.id === 'p-input') {
+                    // Number inputから入力された場合のバリデーション
+                    if (isNaN(val)) return;
+                    if (val < 0.01) val = 0.01;
+                    if (val > 0.99) val = 0.99;
+                    pSlider.value = val;
+                    pInput.value = val;
+                } else {
+                    // スライダーから入力された場合
+                    pInput.value = val;
+                }
+                
+                updateChart();
+            }
+
+            // イベントリスナーの登録
+            pSlider.addEventListener('input', syncInputs);
+            pInput.addEventListener('change', syncInputs); // blurやEnterキーで発火
+
+            // アプリ起動時の初回描画
+            updateChart();
+        });
+    </script>
+</body>
+</html>
