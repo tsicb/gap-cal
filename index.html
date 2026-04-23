@@ -253,8 +253,8 @@
                 
                 // 先頭の見出しセル（横スクロール時に左端に固定）
                 // 余白(px)を少し減らし、画面幅に応じて文字サイズを調整するように変更
-                rowX.innerHTML = '<th class="px-2 md:px-3 py-2 border-r border-slate-200 font-bold whitespace-nowrap bg-slate-100 sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] text-slate-600 text-xs sm:text-sm">ズレ (x)</th>';
-                rowY.innerHTML = '<th class="px-2 md:px-3 py-2 border-r border-slate-200 font-bold whitespace-nowrap bg-slate-100 sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] text-blue-600 text-xs sm:text-sm">GAPスコア (y)</th>';
+                rowX.innerHTML = '<th class="px-2 md:px-3 py-2 border-r border-slate-200 font-bold whitespace-nowrap bg-slate-100 sticky left-0 z-20 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] text-slate-600 text-xs sm:text-sm">ズレ (x)</th>';
+                rowY.innerHTML = '<th class="px-2 md:px-3 py-2 border-r border-slate-200 font-bold whitespace-nowrap bg-slate-100 sticky left-0 z-20 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] text-blue-600 text-xs sm:text-sm">GAPスコア (y)</th>';
                 
                 // x=0から2までを20等分（0.1刻み）
                 for (let i = 0; i <= 20; i++) {
@@ -263,15 +263,25 @@
                     const y = calculateY(cleanX, p);
                     
                     const thX = document.createElement('th');
-                    // 余白(px)を削り、文字サイズを画面幅に合わせる
-                    thX.className = 'px-1 sm:px-1.5 md:px-2 py-2 font-medium whitespace-nowrap border-r border-slate-200/60 last:border-0 text-xs sm:text-sm';
-                    thX.textContent = cleanX.toFixed(1);
-                    rowX.appendChild(thX);
-                    
                     const tdY = document.createElement('td');
-                    // 余白(px)を削り、文字サイズを画面幅に合わせる、色の変化を滑らかにする transition を追加
-                    tdY.className = 'px-1 sm:px-1.5 md:px-2 py-2 font-mono whitespace-nowrap border-r border-slate-200/60 last:border-0 text-[10px] sm:text-xs transition-colors duration-200';
+
+                    // --- 特定の列(0.0, 0.5, 1.0, 1.5, 2.0)の強調処理 ---
+                    const isHighlight = [0, 0.5, 1, 1.5, 2].includes(cleanX);
+
+                    if (isHighlight) {
+                        // 対象の列は青い枠線で囲み、少し目立たせる
+                        thX.className = 'px-1 sm:px-1.5 md:px-2 py-2 font-extrabold whitespace-nowrap border-l-2 border-r-2 border-t-2 border-blue-400 text-blue-700 bg-blue-50/50 text-xs sm:text-sm relative z-10';
+                        tdY.className = 'px-1 sm:px-1.5 md:px-2 py-2 font-mono whitespace-nowrap border-l-2 border-r-2 border-b-2 border-blue-400 text-[10px] sm:text-xs transition-colors duration-200 relative z-10';
+                    } else {
+                        // 通常のセル
+                        thX.className = 'px-1 sm:px-1.5 md:px-2 py-2 font-medium whitespace-nowrap border-r border-slate-200/60 last:border-0 text-xs sm:text-sm';
+                        tdY.className = 'px-1 sm:px-1.5 md:px-2 py-2 font-mono whitespace-nowrap border-r border-slate-200/60 last:border-0 text-[10px] sm:text-xs transition-colors duration-200';
+                    }
+                    
+                    thX.textContent = cleanX.toFixed(1);
                     tdY.textContent = y.toFixed(2); // GAPスコアを四捨五入して小数点以下2桁に変更
+                    
+                    rowX.appendChild(thX); // ← この1行を追加（ズレのセルを表の行に挿入）
                     
                     // --- カラースケール（ヒートマップ）の適用 ---
                     // yの値(最大1.0)に応じて背景の青色の濃さ（透過度）を変える
